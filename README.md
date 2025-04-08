@@ -14,6 +14,7 @@ Built with Next.js 14, TypeScript, and Supabase.
 - **Leaderboard**: Compare your progress with other users
 - **Streak Tracking**: Monitor your daily running streak and longest streak
 - **Achievement System**: Earn achievements for reaching milestones
+- **Performance Optimization**: Efficient data fetching with React Query and HTTP caching
 
 ## Tech Stack
 
@@ -23,11 +24,13 @@ Built with Next.js 14, TypeScript, and Supabase.
   - Tailwind CSS
   - shadcn/ui Components
   - React Hook Form
+  - React Query (TanStack Query) for data fetching and caching
 
 - **Backend**:
   - Supabase (Database & Authentication)
   - PostgreSQL
   - Row Level Security (RLS)
+  - HTTP Caching with Cache-Control headers
 
 ## Getting Started
 
@@ -87,6 +90,8 @@ mileaday/
 │   └── dashboard/         # Protected dashboard routes
 ├── components/            # React components
 ├── lib/                   # Utility functions and types
+│   ├── hooks.ts           # React Query hooks for data fetching
+│   └── constants.ts       # Application constants
 ├── public/               # Static assets
 │   └── avatars/          # User avatar images
 └── supabase/             # Supabase configuration and migrations
@@ -117,6 +122,21 @@ mileaday/
 - Leaderboard rankings
 - Streak comparisons
 
+### Performance Optimization
+- **Client-side Caching**: React Query (TanStack Query) for efficient data fetching and caching
+  - 5-minute cache duration for most queries
+  - Optimistic updates for mutations
+  - Automatic background refetching
+  - Stale-while-revalidate strategy
+- **HTTP Caching**: Cache-Control headers for API routes
+  - Public caching for leaderboard data (5 minutes)
+  - Private caching for user settings (5 minutes)
+  - Stale-while-revalidate for improved performance
+- **Optimized Data Fetching**:
+  - Custom hooks for common data operations
+  - Proper error handling and loading states
+  - Reduced redundant API calls
+
 ## Contributing
 
 1. Fork the repository
@@ -134,4 +154,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Next.js](https://nextjs.org/)
 - [Supabase](https://supabase.io/)
 - [shadcn/ui](https://ui.shadcn.com/)
-- [Tailwind CSS](https://tailwindcss.com/) 
+- [Tailwind CSS](https://tailwindcss.com/)
+- [TanStack Query](https://tanstack.com/query/latest) 

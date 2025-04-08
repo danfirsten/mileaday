@@ -62,7 +62,14 @@ export async function GET() {
     });
     
     console.log("Successfully calculated stats for all users");
-    return NextResponse.json(usersWithStats);
+
+    // Create response with cache headers
+    const response = NextResponse.json(usersWithStats);
+    
+    // Cache for 5 minutes on client and CDN
+    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60');
+    
+    return response;
   } catch (error) {
     console.error('Error in leaderboard API:', error);
     return NextResponse.json(

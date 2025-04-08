@@ -1,26 +1,43 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { useAuth } from "@/components/auth-provider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { AvatarSelector } from "@/components/avatar-selector"
+import { useUserProfile, useUpdateProfile } from "@/lib/hooks"
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth()
   const { toast } = useToast()
+  const { data: profile, isLoading } = useUserProfile(user?.id)
+  const updateProfile = useUpdateProfile()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [profileData, setProfileData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
+    name: "",
+    email: "",
   })
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -28,112 +45,88 @@ export default function SettingsPage() {
     confirmPassword: "",
   })
 
-  // Fetch user settings on component mount
+  // Update form data when profile is loaded
   useEffect(() => {
-    const fetchUserSettings = async () => {
-      if (!user?.id) return;
-      
-      try {
-        setIsLoading(true);
-        
-        // Fetch user profile
-        const response = await fetch(`/api/users/${user.id}/settings`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch user settings');
-        }
-        
-        const data = await response.json();
-        
-        // Set profile data with fetched data or fallback to user data
-        setProfileData({
-          name: data.name || user?.name || "",
-          email: data.email || user?.email || "",
-        });
-        
-      } catch (error) {
-        console.error('Error fetching user settings:', error);
-        // If API fetch fails, use user data as fallback
-        setProfileData({
-          name: user?.name || "",
-          email: user?.email || "",
-        });
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load your settings. Using default values.",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchUserSettings();
-  }, [user, toast]);
+    if (profile) {
+      setProfileData({
+        name: profile.name || "",
+        email: profile.email || "",
+      })
+    }
+  }, [profile])
+
+  // Also update form data when user data changes
+  useEffect(() => {
+    if (user) {
+      setProfileData(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+      }))
+    }
+  }, [user])
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     
     if (!user?.id) {
       toast({
         variant: "destructive",
         title: "Error",
         description: "You must be logged in to update your profile.",
-      });
-      return;
+      })
+      return
     }
     
     try {
-      setIsSubmitting(true);
+      setIsSubmitting(true)
       
-      const response = await fetch(`/api/users/${user.id}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: profileData.name,
-          email: profileData.email,
-        }),
-      });
+      await updateProfile.mutateAsync({
+        userId: user.id,
+        data: profileData,
+      })
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update profile');
-      }
+      await refreshUser()
       
       toast({
         title: "Success",
         description: "Your profile has been updated.",
-      });
+      })
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('Error updating profile:', error)
       toast({
         variant: "destructive",
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update your profile. Please try again.",
-      });
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
-
+    
+    if (!user?.id) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to change your password.",
+      })
+      return
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "New passwords do not match.",
+      })
+      return
+    }
+    
     try {
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        throw new Error("New passwords do not match");
-      }
-      
-      if (passwordData.newPassword.length < 8) {
-        throw new Error("New password must be at least 8 characters long");
-      }
-      
-      if (!user?.id) {
-        throw new Error("You must be logged in to change your password");
-      }
+      setIsSubmitting(true)
       
       const response = await fetch(`/api/users/${user.id}/password`, {
         method: 'PUT',
@@ -144,69 +137,70 @@ export default function SettingsPage() {
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
         }),
-      });
+      })
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to change password');
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to change password')
       }
-
+      
       // Reset password fields
       setPasswordData({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
-      });
-
+      })
+      
       toast({
         title: "Success",
-        description: "Your password has been updated.",
-      });
+        description: "Your password has been changed.",
+      })
     } catch (error) {
-      console.error('Error changing password:', error);
+      console.error('Error changing password:', error)
       toast({
         variant: "destructive",
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to change your password. Please try again.",
-      });
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const handleDeleteAccount = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to delete your account.",
+      })
+      return
+    }
     
     try {
-      setIsSubmitting(true);
+      setIsSubmitting(true)
       
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'DELETE',
-      });
+      })
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete account');
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete account')
       }
-
-      toast({
-        title: "Account deleted",
-        description: "Your account has been permanently deleted.",
-      });
       
-      // Redirect to home page
-      window.location.href = "/";
+      // Redirect to home page after successful deletion
+      window.location.href = "/"
     } catch (error) {
-      console.error('Error deleting account:', error);
+      console.error('Error deleting account:', error)
       toast({
         variant: "destructive",
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete your account. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
+      })
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -235,45 +229,35 @@ export default function SettingsPage() {
                           variant: "destructive",
                           title: "Error",
                           description: "You must be logged in to update your avatar.",
-                        });
-                        return;
+                        })
+                        return
                       }
 
-                      setIsSubmitting(true);
+                      setIsSubmitting(true)
                       
-                      const response = await fetch(`/api/users/${user.id}/profile`, {
-                        method: 'PUT',
-                        headers: {
-                          'Content-Type': 'application/json',
+                      await updateProfile.mutateAsync({
+                        userId: user.id,
+                        data: {
+                          ...profileData,
+                          image: avatarId,
                         },
-                        body: JSON.stringify({
-                          name: profileData.name,
-                          email: profileData.email,
-                          image: avatarId
-                        }),
-                      });
+                      })
                       
-                      if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to update avatar');
-                      }
-
-                      // Refresh the user data to update the UI
-                      await refreshUser();
+                      await refreshUser()
                       
                       toast({
                         title: "Success",
                         description: "Your avatar has been updated.",
-                      });
+                      })
                     } catch (error) {
-                      console.error('Error updating avatar:', error);
+                      console.error('Error updating avatar:', error)
                       toast({
                         variant: "destructive",
                         title: "Error",
                         description: error instanceof Error ? error.message : "Failed to update your avatar. Please try again.",
-                      });
+                      })
                     } finally {
-                      setIsSubmitting(false);
+                      setIsSubmitting(false)
                     }
                   }}
                   disabled={isSubmitting || isLoading}
@@ -390,6 +374,6 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
 

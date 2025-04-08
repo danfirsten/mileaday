@@ -1,25 +1,27 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { DashboardChart } from "@/components/dashboard-chart"
-import { MonthlyChart } from "@/components/monthly-chart"
-import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/components/ui/use-toast"
-import type { Run } from "@/lib/types"
+import { useAuth } from "@/components/auth-provider"
 import { calculateStats, calculateStreaks } from "@/lib/stats"
-import { Award, Calendar, Clock, MapPin, Trophy } from "lucide-react"
 import { getAvatarUrl } from "@/lib/constants"
+import { useUserRuns } from "@/lib/hooks"
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [runs, setRuns] = useState<Run[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { data: runs = [], isLoading } = useUserRuns(user?.id)
   const [stats, setStats] = useState({
     totalMiles: 0,
     progressPercentage: 0,
@@ -43,68 +45,6 @@ export default function ProfilePage() {
     { id: 5, title: "100 Mile Club", description: "Reached 100 total miles", earned: false },
     { id: 6, title: "Consistent Runner", description: "Logged runs for 7 days in a row", earned: false },
   ]
-
-  useEffect(() => {
-    const fetchRuns = async () => {
-      console.log("=== FETCHING RUNS FOR PROFILE PAGE ===");
-      setIsLoading(true);
-      
-      try {
-        // Get the user_id from the auth context
-        const userId = user?.id;
-        console.log("User ID:", userId);
-        
-        if (!userId) {
-          console.error("No user ID found. User may not be logged in.");
-          toast({
-            variant: "destructive",
-            title: "Authentication Error",
-            description: "Please log in to view your profile.",
-          });
-          return;
-        }
-        
-        // Validate UUID format for user_id
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(userId)) {
-          console.error("Invalid user ID format:", userId);
-          toast({
-            variant: "destructive",
-            title: "Invalid User ID",
-            description: "There was a problem with your account. Please log in again.",
-          });
-          return;
-        }
-        
-        // Fetch runs from API
-        console.log("Fetching runs for user:", userId);
-        const response = await fetch(`/api/runs?user_id=${userId}`);
-        console.log("API response status:", response.status);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Error response from API:", errorData);
-          throw new Error(errorData.error || 'Failed to fetch runs');
-        }
-        
-        const data = await response.json();
-        console.log(`Successfully fetched ${data.length} runs`);
-        setRuns(data);
-      } catch (error) {
-        console.error('Error fetching runs:', error);
-        toast({
-          variant: "destructive",
-          title: "Failed to load runs",
-          description: error instanceof Error ? error.message : "There was a problem loading your runs. Please try again.",
-        });
-      } finally {
-        setIsLoading(false);
-        console.log("=== END FETCHING RUNS FOR PROFILE PAGE ===");
-      }
-    };
-
-    fetchRuns();
-  }, [user, toast]);
 
   useEffect(() => {
     if (runs.length > 0) {
@@ -149,196 +89,147 @@ export default function ProfilePage() {
                 </div>
                 <Progress value={stats.progressPercentage} className="h-2" />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Total Miles</span>
-                  <span className="text-xl font-bold">{stats.totalMiles.toFixed(1)}</span>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm">Total Miles</span>
+                  <span className="text-sm font-medium">{stats.totalMiles.toFixed(1)}</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Pace Status</span>
-                  <span className="text-xl font-bold">
-                    {stats.paceStatus > 0 ? "+" : ""}
-                    {stats.paceStatus.toFixed(1)}
-                  </span>
+                <div className="flex justify-between">
+                  <span className="text-sm">Miles Left</span>
+                  <span className="text-sm font-medium">{stats.milesLeft.toFixed(1)}</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Total Runs</span>
-                  <span className="text-xl font-bold">{totalRuns}</span>
+                <div className="flex justify-between">
+                  <span className="text-sm">Days Left</span>
+                  <span className="text-sm font-medium">{stats.daysLeft}</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Current Streak</span>
-                  <span className="text-xl font-bold">{streaks.currentStreak} days</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Longest Streak</span>
-                  <span className="text-xl font-bold">{streaks.longestStreak} days</span>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>New York, NY</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm mt-1">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Joined January 2023</span>
+                <div className="flex justify-between">
+                  <span className="text-sm">Required Miles/Day</span>
+                  <span className="text-sm font-medium">{stats.requiredMilesPerDay.toFixed(2)}</span>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="space-y-4 md:col-span-5">
-          <Tabs defaultValue="stats" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="stats">Stats</TabsTrigger>
-              <TabsTrigger value="achievements">Achievements</TabsTrigger>
-              <TabsTrigger value="activity">Recent Activity</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="stats" className="space-y-4">
+        <Card className="md:col-span-5">
+          <CardHeader>
+            <CardTitle>Statistics</CardTitle>
+            <CardDescription>Your running statistics and achievements</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
               <Card>
-                <CardHeader>
-                  <CardTitle>Running Statistics</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-6 md:grid-cols-3">
-                    <div className="flex flex-col items-center p-4 border rounded-lg">
-                      <Clock className="h-8 w-8 text-primary mb-2" />
-                      <span className="text-sm text-muted-foreground">Average Run</span>
-                      <span className="text-2xl font-bold">{averageRun.toFixed(2)}</span>
-                      <span className="text-xs text-muted-foreground">miles</span>
-                    </div>
-                    <div className="flex flex-col items-center p-4 border rounded-lg">
-                      <MapPin className="h-8 w-8 text-primary mb-2" />
-                      <span className="text-sm text-muted-foreground">Longest Run</span>
-                      <span className="text-2xl font-bold">{longestRun.toFixed(2)}</span>
-                      <span className="text-xs text-muted-foreground">miles</span>
-                    </div>
-                    <div className="flex flex-col items-center p-4 border rounded-lg">
-                      <Trophy className="h-8 w-8 text-primary mb-2" />
-                      <span className="text-sm text-muted-foreground">Longest Streak</span>
-                      <span className="text-2xl font-bold">{streaks.longestStreak}</span>
-                      <span className="text-xs text-muted-foreground">days</span>
-                    </div>
+                  <div className="text-2xl font-bold">{totalRuns}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Longest Run</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{longestRun.toFixed(1)} mi</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Run</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{averageRun.toFixed(1)} mi</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{streaks.currentStreak} days</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Longest Streak</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{streaks.longestStreak} days</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pace Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.paceStatus === 0 && "Behind"}
+                    {stats.paceStatus === 1 && "On Track"}
+                    {stats.paceStatus === 2 && "Ahead"}
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Progress Chart</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-64">
-                      <p className="text-muted-foreground">Loading chart data...</p>
-                    </div>
-                  ) : (
-                    <DashboardChart runs={runs} />
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Monthly Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-64">
-                      <p className="text-muted-foreground">Loading chart data...</p>
-                    </div>
-                  ) : (
-                    <MonthlyChart runs={runs} />
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="achievements" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Achievements</CardTitle>
-                  <CardDescription>Badges and milestones you've earned on your journey</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {achievements.map((achievement) => (
-                      <div
-                        key={achievement.id}
-                        className={`flex items-center gap-4 p-4 border rounded-lg ${
-                          achievement.earned ? "" : "opacity-50"
-                        }`}
+        <Card className="md:col-span-7">
+          <CardHeader>
+            <CardTitle>Achievements</CardTitle>
+            <CardDescription>Track your milestones and accomplishments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              {achievements.map((achievement) => (
+                <Card key={achievement.id}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      {achievement.title}
+                    </CardTitle>
+                    {achievement.earned ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-green-500"
                       >
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                            achievement.earned ? "bg-primary text-primary-foreground" : "bg-muted"
-                          }`}
-                        >
-                          <Award className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{achievement.title}</p>
-                          <p className="text-sm text-muted-foreground">{achievement.description}</p>
-                          {achievement.earned && (
-                            <Badge variant="outline" className="mt-1">
-                              Earned
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="activity" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Your latest runs and achievements</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-64">
-                      <p className="text-muted-foreground">Loading activity data...</p>
-                    </div>
-                  ) : runs.length === 0 ? (
-                    <div className="flex items-center justify-center h-64">
-                      <p className="text-muted-foreground">No runs logged yet. Start your journey today!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-8">
-                      {runs.slice(0, 5).map((run, index) => (
-                        <div key={run.id} className="flex">
-                          <div className="mr-4 flex flex-col items-center">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full border">
-                              <Calendar className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                            <div className="h-full w-px bg-border"></div>
-                          </div>
-                          <div className="space-y-1 pt-1">
-                            <p className="text-sm font-medium leading-none">
-                              Logged a {run.distance.toFixed(2)} mile run
-                            </p>
-                            <p className="text-sm text-muted-foreground">{new Date(run.date).toLocaleDateString()}</p>
-                            {run.note && (
-                              <p className="text-sm text-muted-foreground mt-2 border-l-2 pl-2 italic">"{run.note}"</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                        <path d="m9 12 2 2 4-4" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-gray-300"
+                      >
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                        <path d="M12 8v4" />
+                        <path d="M12 16h.01" />
+                      </svg>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-500">{achievement.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

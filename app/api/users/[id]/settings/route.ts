@@ -24,8 +24,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       );
     }
     
-    // Return the user data
-    return NextResponse.json(data);
+    // Create response with cache headers
+    const response = NextResponse.json(data);
+    
+    // Cache for 5 minutes on client, revalidate if stale
+    response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=60');
+    
+    return response;
   } catch (error) {
     console.error("Error in settings API:", error);
     return NextResponse.json(
