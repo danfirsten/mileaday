@@ -19,6 +19,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
+  signup: (name: string, email: string, password: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -96,6 +97,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkUser()
   }, [])
 
+  // Signup function using Supabase
+  const signup = async (name: string, email: string, password: string) => {
+    setLoading(true)
+    try {
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      
+      if (authError) {
+        console.error('Signup error:', authError)
+        throw authError
+      }
+      
+      if (authData.user) {
+        // Create user profile in users table
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: authData.user.id,
+              name,
+              email,
+              image: 'default',
+            }
+          ])
+        
+        if (profileError) {
+          console.error('Error creating user profile:', profileError)
+          throw profileError
+        }
+        
+        // Refresh user data and redirect
+        await refreshUser()
+        router.push("/dashboard")
+      }
+    } catch (error) {
+      console.error("Signup failed", error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Login function using Supabase
   const login = async (email: string, password: string) => {
     setLoading(true)
@@ -138,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, signup }}>
       {children}
     </AuthContext.Provider>
   )
